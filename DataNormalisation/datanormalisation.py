@@ -1,12 +1,18 @@
 import pandas as pd
 from google.cloud import bigquery
-
+import logging
 from BQconnector.bqconnector import create_or_append_to_bigquery_tables
 
 
 def normalize_data(df):
     """
-    Normalize the DataFrame into separate tables.
+    Normalizes the DataFrame into separate tables.
+
+    Args:
+    - df (DataFrame): Input DataFrame to be normalized.
+
+    Returns:
+    - tuple: Tuple containing normalized DataFrames for Products, Crops, Diseases, Pests, and Documents.
     """
     # Split Product, Crop, Disease, and Pest information
     product_df = df['Product_names'].str.split(',', expand=True).stack().reset_index(level=1, drop=True).to_frame('Product_Name').drop_duplicates().reset_index(drop=True)
@@ -32,23 +38,44 @@ def normalize_data(df):
     return product_df, crop_df, disease_df, pest_df, document_df
 
 def extracting_data_as_dataframe(project_id,dataset_id,table_id):
+    """
+    Extracts data from BigQuery into a DataFrame.
+
+    Args:
+    - project_id (str): Google Cloud project ID.
+    - dataset_id (str): BigQuery dataset ID.
+    - table_id (str): BigQuery table ID.
+
+    Returns:
+    - DataFrame: DataFrame containing the extracted data.
+    """
     client = bigquery.Client(project=project_id)
     query = f"SELECT * FROM `{project_id}.{dataset_id}.{table_id}`"
     df = client.query(query).to_dataframe()
     return df
 
 
-def insered_data_into_bquery(project_id,dataset_id,table_id):
-           
+def insert_data_into_bquery(project_id,dataset_id,table_id):
+    """
+    Inserts data into BigQuery after normalization.
+
+    Args:
+    - project_id (str): Google Cloud project ID.
+    - dataset_id (str): BigQuery dataset ID.
+    - table_id (str): BigQuery table ID.
+
+    Returns:
+    - None
+    """           
     df = extracting_data_as_dataframe(project_id,dataset_id,table_id)
-    print(f"extracting data from BigQuery{project_id}.{dataset_id}.{table_id} is completed") 
+    logging.info(f"Extracting data from BigQuery {project_id}.{dataset_id}.{table_id} is completed") 
 
     if not df.empty:
         # Perform data normalization
         df['Modified'] = df['Modified'].astype(str)
         df['Trial_report'] = df['Trial_report'].astype(str)
         product_df, crop_df, disease_df, pest_df, document_df = normalize_data(df)
-        print("normalize data is compelted")
+        logging.info("Normalize data is completed")
         # print(document_df.info())
 
         # Define tables dictionary
@@ -57,9 +84,9 @@ def insered_data_into_bquery(project_id,dataset_id,table_id):
             'Crop': crop_df,
             'Disease': disease_df,
             'Pest': pest_df,
-            'Document': document_df
+            'Document': document_df,
         }
 
         # Create or append to BigQuery tables
         create_or_append_to_bigquery_tables(tables_dict, project_id, dataset_id)
-        print("inserted data is compelted")
+        logging.info("Inserted data is completed")

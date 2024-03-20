@@ -10,7 +10,7 @@ def generate_random_data():
     modified_dates = [datetime(2023, 1, 1) + timedelta(days=random.randint(1, 365)) for _ in range(5)]
     years = [random.randint(2010, 2023) for _ in range(5)]
     countries = ['USA', 'UK', 'Canada', 'Australia']
-    classifications = ['Class A', 'Class B', 'Class C']
+    classifications = ['external', 'restricted']
     categories = ['Category A', 'Category B', 'Category C']
     application_types = ['Type 1', 'Type 2', 'Type 3']
     paths = ['/path/to/file1', '/path/to/file2', '/path/to/file3', '/path/to/file4', '/path/to/file5']
@@ -54,4 +54,4 @@ data = generate_random_data()
 df = pd.DataFrame(data)
 
 # Save to Excel
-df.to_excel("random_data.xlsx", index=False)
+df.to_excel("file.xlsx", index=False)

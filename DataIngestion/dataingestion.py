@@ -2,6 +2,7 @@ import re
 import pandas as pd
 from pandas_gbq import gbq
 from google.cloud import bigquery
+import logging
 
 # Path to your JSON key file
 key_path = "key.json"
@@ -37,10 +38,11 @@ MASTER_SCHEMA = [
     {'name': 'Field_or_greenhouse_trial', 'type': 'STRING'},
     {'name': 'Trial_report', 'type': 'STRING'},
     {'name': 'sumamry', 'type': 'STRING'},  
-    {'name': 'language', 'type': 'STRING'}
+    {'name': 'language', 'type': 'STRING'},
+    {'name': 'created_at', 'type': 'TIMESTAMP'},
+    {'name': 'updated_at', 'type': 'TIMESTAMP'}
     # Add more columns as needed
 ]
-
 
 def read_excel_to_dataframe(excel_file, sheet_name):
     """
@@ -58,16 +60,26 @@ def read_excel_to_dataframe(excel_file, sheet_name):
         # print(df.info())
         return df
     except FileNotFoundError:
-        print("Error: File not found. Please provide a valid file path.")
+        logging.error("Error: File not found. Please provide a valid file path.")
         return None
     except pd.errors.ParserError:
-        print("Error: File format is not valid. Please provide a valid Excel file.")
+        logging.error("Error: File format is not valid. Please provide a valid Excel file.")
         return None
 
 def create_or_append_to_bigquery_table(df, project_id, dataset_id, table_id, schema):
     """
-    Truncate the BigQuery table and load new data from DataFrame into it.
-    Only insert columns matching the schema.
+    Truncates the BigQuery table and loads new data from DataFrame into it.
+    Only inserts columns matching the schema.
+
+    Args:
+    - df (DataFrame): DataFrame containing data to be inserted into BigQuery.
+    - project_id (str): Google Cloud project ID.
+    - dataset_id (str): BigQuery dataset ID.
+    - table_id (str): BigQuery table ID.
+    - schema (list): List of dictionaries specifying the schema of the BigQuery table.
+
+    Returns:
+    - None
     """
     try:
         # Convert float columns to strings
@@ -86,14 +98,30 @@ def create_or_append_to_bigquery_table(df, project_id, dataset_id, table_id, sch
                            if_exists='replace',
                            table_schema=schema)  # enforce schema during insertion
     except Exception as e:
-        print(f"An error occurred while creating or appending to the BigQuery table: {str(e)}")
+        logging.error(f"An error occurred while creating or appending to the BigQuery table: {str(e)}")
 
 # Function to remove counts in parentheses
 def remove_counts(text):
-    return re.sub(r'\(\d+\)', '', text)
+    """
+    Removes counts in parentheses from a string.
+
+    Args:
+    - text (str): Input string containing counts.
+
+    Returns:
+    - str: String with counts removed.
+    """
+    # Remove counts in parentheses
+    text = re.sub(r'\(\d+\)', '', text)
+    # Remove extra whitespace characters around commas
+    text = re.sub(r'\s*,\s*', ',', text)
+    return text.strip()
 
 
 def main():
+    """
+    Main function for data ingestion.
+    """
     excel_file = 'random_data1.xlsx'
     sheet_name = 'Sheet1'
     project_id = 'project-414304'
@@ -102,7 +130,7 @@ def main():
 
     df = read_excel_to_dataframe(excel_file, sheet_name)
     # Apply the function to the 'Product_names' column
-    df['Product_names'] = df['Product_names'].apply(remove_counts)
+    df['Product_names'] = df['Product_names'].apply(remove_counts).str.strip()
     df['Diseases'] = df['Diseases'].apply(remove_counts)
     df['pest'] = df['pest'].apply(remove_counts)
     df['crop'] = df['crop'].apply(remove_counts)
@@ -114,5 +142,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
